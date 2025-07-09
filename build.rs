@@ -2,10 +2,12 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() {
-    let dst = cmake::Config::new("gix_dll").build_target("all").build();
+    let dst = cmake::Config::new("libs/gix_dll")
+        .build_target("all")
+        .build();
 
     let bindings = bindgen::Builder::default()
-        .header("gix_dll/src/include/gix_dll/gix_dll.h")
+        .header("libs/gix_dll/src/include/gix_dll/gix_dll.h")
         .generate()
         .expect("Unable to generate bindings");
 

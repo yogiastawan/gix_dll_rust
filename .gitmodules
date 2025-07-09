@@ -1,0 +1,3 @@
+[submodule "libs/gix_dll"]
+	path = libs/gix_dll
+	url = git@github.com:yogiastawan/gix_dll.git
