@@ -1,0 +1,209 @@
+use std::{
+    ffi::c_void,
+    fmt::{self, Display},
+    marker::PhantomData,
+};
+
+include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+
+pub struct GixDLList<T> {
+    gdll: *mut GixDLL,
+    phantom: PhantomData<T>,
+}
+
+pub struct GixNodeWrapper<T> {
+    ptr: *mut GixNode,
+    phantom: PhantomData<T>,
+}
+
+impl<T> GixDLList<T> {
+    pub fn new() -> Option<GixDLList<T>> {
+        let a = unsafe {
+            let res = __internal_gix_dll_new(size_of::<T>());
+
+            if res.is_null() {
+                None
+            } else {
+                Some(Self {
+                    gdll: res,
+                    phantom: PhantomData,
+                })
+            }
+        };
+
+        a
+    }
+
+    pub fn append(&mut self, val: T) -> Option<GixNodeWrapper<T>> {
+        let res = unsafe {
+            let node = gix_dll_append(self.gdll, &val as *const T as *const c_void);
+
+            if node.is_null() {
+                None
+            } else {
+                Some(GixNodeWrapper {
+                    ptr: node,
+                    phantom: PhantomData,
+                })
+            }
+        };
+
+        res
+    }
+
+    pub fn prepend(&mut self, val: T) -> Option<GixNodeWrapper<T>> {
+        let res = unsafe {
+            let node = gix_dll_prepend(self.gdll, &val as *const T as *const c_void);
+
+            if node.is_null() {
+                None
+            } else {
+                Some(GixNodeWrapper {
+                    ptr: node,
+                    phantom: PhantomData,
+                })
+            }
+        };
+        res
+    }
+
+    pub fn insert_after(&mut self, node: &GixNodeWrapper<T>, val: T) -> Option<GixNodeWrapper<T>> {
+        let res = unsafe {
+            let node = gix_dll_insert_after(self.gdll, node.ptr, &val as *const T as *const c_void);
+            if node.is_null() {
+                None
+            } else {
+                Some(GixNodeWrapper {
+                    ptr: node,
+                    phantom: PhantomData,
+                })
+            }
+        };
+        res
+    }
+    pub fn insert_before(&mut self, node: &GixNodeWrapper<T>, val: T) -> Option<GixNodeWrapper<T>> {
+        let res = unsafe {
+            let node =
+                gix_dll_insert_before(self.gdll, node.ptr, &val as *const T as *const c_void);
+            if node.is_null() {
+                None
+            } else {
+                Some(GixNodeWrapper {
+                    ptr: node,
+                    phantom: PhantomData,
+                })
+            }
+        };
+        res
+    }
+
+    pub fn remove(&mut self, node: &GixNodeWrapper<T>) {
+        unsafe {
+            gix_dll_remove(self.gdll, node.ptr);
+        }
+    }
+
+    pub fn as_ref(&self) -> &GixDLL {
+        unsafe { &*self.gdll }
+    }
+
+    pub fn as_mut_ref(&self) -> &mut GixDLL {
+        unsafe { &mut *self.gdll }
+    }
+
+    pub fn as_ptr(&self) -> *const GixDLL {
+        self.gdll
+    }
+
+    pub fn as_mut_ptr(&mut self) -> *mut GixDLL {
+        self.gdll
+    }
+}
+
+impl<T> Drop for GixDLList<T> {
+    fn drop(&mut self) {
+        unsafe {
+            gix_dll_destroy(self.gdll);
+        }
+    }
+}
+
+impl<T: std::fmt::Debug> Display for GixDLList<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        unsafe {
+            let mut current = (*self.gdll).head;
+            write!(f, "[")?;
+
+            let mut first = true;
+            while !current.is_null() {
+                let data_ptr = gix_node_get_value(current) as *const T;
+                if !data_ptr.is_null() {
+                    if !first {
+                        write!(f, ", ")?;
+                    }
+                    let val = &*data_ptr;
+                    write!(f, "{:?}", val)?;
+                    first = false;
+                }
+
+                current = gix_node_next(current);
+            }
+
+            write!(f, "]")
+        }
+    }
+}
+
+impl<T> GixNodeWrapper<T> {
+    pub unsafe fn from_raw(ptr: *mut GixNode) -> Option<Self> {
+        if ptr.is_null() {
+            None
+        } else {
+            Some(Self {
+                ptr: ptr,
+                phantom: PhantomData,
+            })
+        }
+    }
+
+    pub fn set_data(&mut self, gdll: &GixDLList<T>, val: T) {
+        unsafe {
+            gix_node_set_value(gdll.gdll, self.ptr, &val as *const T as *const c_void);
+        }
+    }
+
+    pub fn get_data<'a>(&self) -> Option<&'a T> {
+        unsafe {
+            let val_ptr = gix_node_get_value(self.ptr) as *const T;
+            if val_ptr.is_null() {
+                None
+            } else {
+                Some(&*val_ptr)
+            }
+        }
+    }
+
+    pub fn next(&self) -> Option<Self> {
+        unsafe { Self::from_raw(gix_node_next(self.ptr)) }
+    }
+
+    pub fn prev(&self) -> Option<Self> {
+        unsafe { Self::from_raw(gix_node_prev(self.ptr)) }
+    }
+
+    pub fn as_ref(&self) -> &GixNode {
+        unsafe { &*self.ptr }
+    }
+
+    pub fn as_mut_ref(&mut self) -> &mut GixNode {
+        unsafe { &mut *self.ptr }
+    }
+
+    pub fn as_ptr(&self) -> *const GixNode {
+        self.ptr
+    }
+
+    pub fn as_mut_ptr(&mut self) -> *mut GixNode {
+        self.ptr
+    }
+}
