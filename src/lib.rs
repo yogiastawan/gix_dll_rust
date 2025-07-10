@@ -34,9 +34,13 @@ impl<T> GixDLList<T> {
         a
     }
 
-    pub fn append(&mut self, val: T) -> Option<GixNodeWrapper<T>> {
+    pub fn size(&self) -> usize {
+        unsafe { (*self.gdll).size }
+    }
+
+    pub fn append(&self, val: &T) -> Option<GixNodeWrapper<T>> {
         let res = unsafe {
-            let node = gix_dll_append(self.gdll, &val as *const T as *const c_void);
+            let node = gix_dll_append(self.gdll, val as *const T as *const c_void);
 
             if node.is_null() {
                 None
@@ -51,9 +55,9 @@ impl<T> GixDLList<T> {
         res
     }
 
-    pub fn prepend(&mut self, val: T) -> Option<GixNodeWrapper<T>> {
+    pub fn prepend(&self, val: &T) -> Option<GixNodeWrapper<T>> {
         let res = unsafe {
-            let node = gix_dll_prepend(self.gdll, &val as *const T as *const c_void);
+            let node = gix_dll_prepend(self.gdll, val as *const T as *const c_void);
 
             if node.is_null() {
                 None
@@ -67,9 +71,9 @@ impl<T> GixDLList<T> {
         res
     }
 
-    pub fn insert_after(&mut self, node: &GixNodeWrapper<T>, val: T) -> Option<GixNodeWrapper<T>> {
+    pub fn insert_after(&self, node: &GixNodeWrapper<T>, val: &T) -> Option<GixNodeWrapper<T>> {
         let res = unsafe {
-            let node = gix_dll_insert_after(self.gdll, node.ptr, &val as *const T as *const c_void);
+            let node = gix_dll_insert_after(self.gdll, node.ptr, val as *const T as *const c_void);
             if node.is_null() {
                 None
             } else {
@@ -81,10 +85,9 @@ impl<T> GixDLList<T> {
         };
         res
     }
-    pub fn insert_before(&mut self, node: &GixNodeWrapper<T>, val: T) -> Option<GixNodeWrapper<T>> {
+    pub fn insert_before(&self, node: &GixNodeWrapper<T>, val: &T) -> Option<GixNodeWrapper<T>> {
         let res = unsafe {
-            let node =
-                gix_dll_insert_before(self.gdll, node.ptr, &val as *const T as *const c_void);
+            let node = gix_dll_insert_before(self.gdll, node.ptr, val as *const T as *const c_void);
             if node.is_null() {
                 None
             } else {
@@ -97,9 +100,29 @@ impl<T> GixDLList<T> {
         res
     }
 
-    pub fn remove(&mut self, node: &GixNodeWrapper<T>) {
+    pub fn remove(&self, node: GixNodeWrapper<T>) {
         unsafe {
             gix_dll_remove(self.gdll, node.ptr);
+        }
+    }
+
+    pub fn get_value_at(&self, index: usize) -> Option<&T> {
+        let res = unsafe {
+            let a = gix_dll_get_value_at(self.gdll, index) as *const T;
+            if a.is_null() { None } else { Some(&*a) }
+        };
+        res
+    }
+
+    pub fn remove_at(&self, index: usize) {
+        unsafe {
+            gix_dll_remove_at(self.gdll, index);
+        }
+    }
+
+    pub fn set_data_at(&self, index: usize, val: &T) {
+        unsafe {
+            gix_dll_set_value_at(self.gdll, index, val as *const T as *const c_void);
         }
     }
 
@@ -115,7 +138,7 @@ impl<T> GixDLList<T> {
         self.gdll
     }
 
-    pub fn as_mut_ptr(&mut self) -> *mut GixDLL {
+    pub fn as_mut_ptr(&self) -> *mut GixDLL {
         self.gdll
     }
 }
@@ -166,9 +189,9 @@ impl<T> GixNodeWrapper<T> {
         }
     }
 
-    pub fn set_data(&mut self, gdll: &GixDLList<T>, val: T) {
+    pub fn set_data(&self, val: &T) {
         unsafe {
-            gix_node_set_value(gdll.gdll, self.ptr, &val as *const T as *const c_void);
+            gix_node_set_value(self.ptr, val as *const T as *const c_void);
         }
     }
 
@@ -195,7 +218,7 @@ impl<T> GixNodeWrapper<T> {
         unsafe { &*self.ptr }
     }
 
-    pub fn as_mut_ref(&mut self) -> &mut GixNode {
+    pub fn as_mut_ref(&self) -> &mut GixNode {
         unsafe { &mut *self.ptr }
     }
 
@@ -203,7 +226,7 @@ impl<T> GixNodeWrapper<T> {
         self.ptr
     }
 
-    pub fn as_mut_ptr(&mut self) -> *mut GixNode {
+    pub fn as_mut_ptr(&self) -> *mut GixNode {
         self.ptr
     }
 }
