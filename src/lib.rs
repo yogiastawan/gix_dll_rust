@@ -6,6 +6,12 @@ use std::{
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum KindError {
+    AlreadyRemoved,
+    NullPtr,
+}
+
 pub struct GixDLList<T> {
     gdll: *mut GixDLL,
     phantom: PhantomData<T>,
@@ -100,13 +106,16 @@ impl<T> GixDLList<T> {
         res
     }
 
-    pub fn remove(&self, node: GixNodeWrapper<T>) {
+    pub fn remove(&self, node: GixNodeWrapper<T>) -> Result<(), KindError> {
         unsafe {
-            gix_dll_remove(self.gdll, node.ptr);
+            match gix_dll_remove(self.gdll, node.ptr) {
+                true => Ok(()),
+                false => Err(KindError::AlreadyRemoved),
+            }
         }
     }
 
-    pub fn get_value_at(&self, index: usize) -> Option<&T> {
+    pub fn get_data_at(&self, index: usize) -> Option<&T> {
         let res = unsafe {
             let a = gix_dll_get_value_at(self.gdll, index) as *const T;
             if a.is_null() { None } else { Some(&*a) }
@@ -114,15 +123,21 @@ impl<T> GixDLList<T> {
         res
     }
 
-    pub fn remove_at(&self, index: usize) {
+    pub fn remove_at(&self, index: usize) -> Result<(), KindError> {
         unsafe {
-            gix_dll_remove_at(self.gdll, index);
+            match gix_dll_remove_at(self.gdll, index) {
+                true => Ok(()),
+                false => Err(KindError::AlreadyRemoved),
+            }
         }
     }
 
-    pub fn set_data_at(&self, index: usize, val: &T) {
+    pub fn set_data_at(&self, index: usize, val: &T) -> Result<(), KindError> {
         unsafe {
-            gix_dll_set_value_at(self.gdll, index, val as *const T as *const c_void);
+            match gix_dll_set_value_at(self.gdll, index, val as *const T as *const c_void) {
+                true => Ok(()),
+                false => Err(KindError::NullPtr),
+            }
         }
     }
 
@@ -189,9 +204,12 @@ impl<T> GixNodeWrapper<T> {
         }
     }
 
-    pub fn set_data(&self, val: &T) {
+    pub fn set_data(&self, val: &T) -> Result<(), KindError> {
         unsafe {
-            gix_node_set_value(self.ptr, val as *const T as *const c_void);
+            match gix_node_set_value(self.ptr, val as *const T as *const c_void) {
+                true => Ok(()),
+                false => Err(KindError::NullPtr),
+            }
         }
     }
 
